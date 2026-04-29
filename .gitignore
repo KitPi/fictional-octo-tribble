@@ -1,0 +1,6 @@
+checkpoints/
+test_images/
+files/
+qgis-venv/
+__pycache__/
+.pytest_cache/
