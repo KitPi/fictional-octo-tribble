@@ -1,14 +1,17 @@
 # flood_mask_plugin.py
 import os
-#import torch
-#import torchvision.transforms as transforms
-#import numpy as np
+import torch
+import torchvision.transforms as transforms
+import numpy as np
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui import *
 from qgis.core import QgsRasterLayer, QgsProject
 import rasterio
 from rasterio.transform import from_origin
 import tempfile
+from PIL import Image
+
+
 
 import requests
 
@@ -82,59 +85,6 @@ class FloodMaskPlugin:
             QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
             return
     
-    def preprocess_image(self, image_path):
-        # Read the input image
-        with rasterio.open(image_path) as src:
-            image = src.read(1)  # Read first band
-            transform = src.transform
-            crs = src.crs
-
-            # Normalize to [0, 1]
-            image = image.astype(np.float32) / 65535.0  # Assuming 16-bit image
-
-            # Resize to model input size (e.g., 256x256)
-            transform_resize = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Resize((256, 256)),
-                transforms.ToTensor()
-            ])
-            image = transform_resize(image)
-
-            # Convert to numpy array
-            image = image.numpy()
-
-        return image, transform, crs
-
-    def postprocess_output(self, output):
-        # Get predictions
-        _, predicted = torch.max(output.data, 1)
-        predicted = predicted.squeeze().numpy()
-
-        # Convert to binary mask (1 for flood, 0 for no flood)
-        flood_mask = (predicted == 1).astype(np.uint8) * 255
-
-        return flood_mask
-
-    def save_raster(self, data, output_path, transform, crs):
-        # Create a temporary file to store the output
-        with tempfile.NamedTemporaryFile(suffix='.tif') as tmp:
-            # Save the data as a GeoTIFF
-            with rasterio.open(
-                tmp.name,
-                'w',
-                driver='GTiff',
-                height=data.shape[0],
-                width=data.shape[1],
-                count=1,
-                dtype=data.dtype,
-                crs=crs,
-                transform=transform
-            ) as dst:
-                dst.write(data, 1)
-
-            # Copy the temporary file to the final destination
-            with open(tmp.name, 'rb') as src, open(output_path, 'wb') as dst:
-                dst.write(src.read())
 
 if __name__ == "__console__":
     from qgis.core import QgsApplication
