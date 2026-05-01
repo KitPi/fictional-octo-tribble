@@ -86,6 +86,27 @@ class FloodMaskPlugin:
             return
     
 
+    def save_raster(self, data, output_path, transform, crs):
+        # Create a temporary file to store the output
+        with tempfile.NamedTemporaryFile(suffix='.tif') as tmp:
+            # Save the data as a GeoTIFF
+            with rasterio.open(
+                tmp.name,
+                'w',
+                driver='GTiff',
+                height=data.shape[0],
+                width=data.shape[1],
+                count=1,
+                dtype=data.dtype,
+                crs=crs,
+                transform=transform
+            ) as dst:
+                dst.write(data, 1)
+
+            # Copy the temporary file to the final destination
+            with open(tmp.name, 'rb') as src, open(output_path, 'wb') as dst:
+                dst.write(src.read())
+
 if __name__ == "__console__":
     from qgis.core import QgsApplication
     app = QgsApplication([], False)

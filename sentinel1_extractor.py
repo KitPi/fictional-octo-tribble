@@ -17,12 +17,11 @@ class FloodMaskModel(nn.Module):
 
     def forward(self, x):
         im = self.preprocess_image(x)
-        return self.model(im)['out']
+        return self.postprocess_output(self.model(im)['out'])
 
     def forward_batch(self, batch):
-        return [self.model(x)['out'] for x in batch]
+        return [self.forward(x) for x in batch]
     
-
 
     def preprocess_image(self, image_path):
         # Read the input image
@@ -38,7 +37,6 @@ class FloodMaskModel(nn.Module):
             # image is already floating32 
             return im
 
-
         return None
 
     def postprocess_output(self, output):
@@ -46,28 +44,9 @@ class FloodMaskModel(nn.Module):
         _, predicted = torch.max(output.data, 1)
         predicted = predicted.squeeze().numpy()
 
-        # Convert to binary mask (1 for flood, 0 for no flood)
+        # Convert to binary numpy mask (1 for flood, 0 for no flood)
         flood_mask = (predicted == 1).astype(np.uint8) * 255
 
         return flood_mask
 
-    def save_raster(self, data, output_path, transform, crs):
-        # Create a temporary file to store the output
-        with tempfile.NamedTemporaryFile(suffix='.tif') as tmp:
-            # Save the data as a GeoTIFF
-            with rasterio.open(
-                tmp.name,
-                'w',
-                driver='GTiff',
-                height=data.shape[0],
-                width=data.shape[1],
-                count=1,
-                dtype=data.dtype,
-                crs=crs,
-                transform=transform
-            ) as dst:
-                dst.write(data, 1)
-
-            # Copy the temporary file to the final destination
-            with open(tmp.name, 'rb') as src, open(output_path, 'wb') as dst:
-                dst.write(src.read())
+    
