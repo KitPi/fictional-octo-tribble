@@ -14,21 +14,7 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from rasterio.transform import from_origin
 
 from sentinel1_extractor import FloodMaskModel
-
-
-class SkipQueue:
-    def __init__(self, max_size=10, types=1):
-        self.queue = []
-        self.max_size = max_size
-        self.num_type = types
-
-    def put(self, item, type):
-        if len(self.queue) >= self.max_size:
-            self.queue.pop(0)
-        self.queue.append(item)
-
-    def get(self):
-        return
+from TypedQueue import TypedQueue
 
 
 class FloodMaskPlugin:
