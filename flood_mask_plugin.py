@@ -1,26 +1,42 @@
 # flood_mask_plugin.py
 import os
+import tempfile
+
+import numpy as np
+import rasterio
+import requests
 import torch
 import torchvision.transforms as transforms
-import numpy as np
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
-from qgis.PyQt.QtGui import *
-from qgis.core import QgsRasterLayer, QgsProject
-import rasterio
-from rasterio.transform import from_origin
-import tempfile
 from PIL import Image
+from qgis.core import QgsProject, QgsRasterLayer
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from rasterio.transform import from_origin
+
+from sentinel1_extractor import FloodMaskModel
 
 
+class SkipQueue:
+    def __init__(self, max_size=10, types=1):
+        self.queue = []
+        self.max_size = max_size
+        self.num_type = types
 
-import requests
+    def put(self, item, type):
+        if len(self.queue) >= self.max_size:
+            self.queue.pop(0)
+        self.queue.append(item)
+
+    def get(self):
+        return
+
 
 class FloodMaskPlugin:
-
     def __init__(self, iface):
         self.iface = iface
         self.plugin_dir = os.path.dirname(__file__)
         self.backend_api = None
+        self.FloodModel = FloodMaskModel
 
     def initBackendAPI(self, api_addr):
         try:
@@ -28,9 +44,10 @@ class FloodMaskPlugin:
             # Returns a URL with the processing ID if the API is available, otherwise returns None
             if response.status_code == 200:
                 proc_id = response.json().get("processing_id", [])
-                if proc_id: return f"{api_addr}/{proc_id[0]}" 
+                if proc_id:
+                    return f"{api_addr}/{proc_id[0]}"
             return None
-        
+
         except Exception as e:
             return None
 
@@ -46,14 +63,15 @@ class FloodMaskPlugin:
 
     def run(self):
         # Connect to the Backend API
-        api_addr = QInputEvent.getText(None, "Backend API", "Enter Backend API Address:port")
+        api_addr = QInputEvent.getText(
+            None, "Backend API", "Enter Backend API Address:port"
+        )
         self.backend_api = self.initBackendAPI(api_addr)
         if not self.backend_api:
             QMessageBox.critical(
                 None, "Error", f"Failed to connect to Backend API at {api_addr}"
             )
             return
-
 
         # Get input Sentinel-1 Raster
         input_path, _ = QFileDialog.getOpenFileName(
@@ -62,21 +80,20 @@ class FloodMaskPlugin:
         if not input_path:
             return
 
-
         job_ids = []
 
         # Get output directory
-        output_dir = QFileDialog.getExistingDirectory(
-            None, "Select Output Directory"
-        )
+        output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
         if not output_dir:
             return
 
         # Transfer Raster to Backend API
         try:
-            with open(input_path, 'rb') as f: # Path To .tif files
-                files = {'file': f}
-                response = requests.post(f"{self.backend_api}/process-raster", files=files)
+            with open(input_path, "rb") as f:  # Path To .tif files
+                files = {"file": f}
+                response = requests.post(
+                    f"{self.backend_api}/process-raster", files=files
+                )
                 if response.status_code != 200:
                     raise Exception(f"API Error: {response.text}")
                 output_data = response.content
@@ -84,31 +101,32 @@ class FloodMaskPlugin:
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
             return
-    
 
     def save_raster(self, data, output_path, transform, crs):
         # Create a temporary file to store the output
-        with tempfile.NamedTemporaryFile(suffix='.tif') as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
             # Save the data as a GeoTIFF
             with rasterio.open(
                 tmp.name,
-                'w',
-                driver='GTiff',
+                "w",
+                driver="GTiff",
                 height=data.shape[0],
                 width=data.shape[1],
                 count=1,
                 dtype=data.dtype,
                 crs=crs,
-                transform=transform
+                transform=transform,
             ) as dst:
                 dst.write(data, 1)
 
             # Copy the temporary file to the final destination
-            with open(tmp.name, 'rb') as src, open(output_path, 'wb') as dst:
+            with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
                 dst.write(src.read())
+
 
 if __name__ == "__console__":
     from qgis.core import QgsApplication
+
     app = QgsApplication([], False)
     app.initQgis()
     plugin = FloodMaskPlugin(None)
