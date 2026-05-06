@@ -22,11 +22,18 @@ class FloodMaskModel(nn.Module):
         self.model = net
         self.model.load_state_dict(torch.load(FloodModelPath, map_location=self.device))
         self.model.eval()
+        self.loaded = False
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def loadModel(self):
         self.model.to(self.device)
+        self.loaded= True
+
+    def unloadModel(self)
+        self.model.cpu()
+        torch.cuda.empty_cache()
+        self.loaded = False
 
     def forward(self, x):
         im = self.preprocess_image(x)
