@@ -11,5 +11,6 @@ class SuterbrookBackendProcessor:
 
     def process(self):
         while True:
-            item = self.queue.pop(16)
+            if FloodModel.GPUMem() < 0.8:
+                item = self.queue.pop(16)
             print("Processing item: {}".format(item))
