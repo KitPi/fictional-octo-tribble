@@ -18,14 +18,14 @@ class TypedQueue:
 
         if self.queue and item_type is None:
             item_type, item = self.queue.popleft()
-            popped_items.append(item)
+            popped_items.append({"type": item_type, "item": item})
 
         # Iterate through the queue to find and pop the specified items
         # iter = 0
         while self.queue and len(popped_items) < count:
             current_type, item = self.queue.popleft()
             if current_type == item_type:
-                popped_items.append(item)
+                popped_items.append({"type": item_type, "item": item})
             else:
                 temp_queue.append((current_type, item))
             # iter += 1

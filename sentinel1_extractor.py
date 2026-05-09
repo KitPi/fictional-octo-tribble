@@ -28,20 +28,20 @@ class FloodMaskModel(nn.Module):
         if torch.cuda_is_available():
             self.total_mem = torch.cuda.get_device_properties(self.device).total_memory
         else:
-            32 * 1024 ** 3 # 32Gb CPU mem
+            self.total_mem = 32 * 1024 ** 3 # 32Gb CPU mem
 
     def loadModel(self):
         self.model.to(self.device)
         self.loaded= True
 
-    def unloadModel(self)
+    def unloadModel(self):
         self.model.cpu()
         torch.cuda.empty_cache()
         self.loaded = False
 
     def GPUMem(self):
         if torch.cuda_is_available():
-            stats = torch.cuda.memory_stats(device =0)
+            stats = torch.cuda.memory_stats(device = self.device)
         else:
             stats = torch.cpu
             return stats["allocated_bytes.all.current"] / self.total_mem
