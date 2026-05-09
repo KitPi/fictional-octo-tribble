@@ -3,6 +3,8 @@
 from sentinel1_extractor import FloodMaskModel
 from TypedQueue import TypedQueue
 import torch
+from fastapi import fastapi
+
 
 
 class SuterbrookBackendProcessor:
@@ -11,13 +13,15 @@ class SuterbrookBackendProcessor:
         self.FloodModel = FloodMaskModel()
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if torch.cuda_is_available():
+        if torch.cuda.is_available():
             self.total_mem = torch.cuda.get_device_properties(self.device).total_memory
         else:
             self.total_mem = 32 * 1024 ** 3 # 32Gb CPU mem
+        return None
 
     def clearGPU(self):
         self.FloodModel.unloadModel()
+        return None
 
     def GPUMem(self):
         if torch.cuda_is_available():
@@ -25,6 +29,7 @@ class SuterbrookBackendProcessor:
         else:
             stats = torch.cpu
             return stats["allocated_bytes.all.current"] / self.total_mem
+        return None
 
     def process(self):
         while True:
@@ -37,3 +42,4 @@ class SuterbrookBackendProcessor:
                         self.FloodModel.loadModel()
                     print("Processing items: {}".format(items))
                     output = self.FloodModel.forward_batch(items)
+        return None
