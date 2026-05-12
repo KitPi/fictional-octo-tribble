@@ -23,3 +23,6 @@ echo "/usr/share/qgis/python" >> "$VIRTUAL_ENV/lib/python$PYVER/site-packages/sy
 ```bash
 python -m pytest
 ```
+
+## Ray Tutorial
+ [Ray tutorial](https://docs.pytorch.org/tutorials/beginner/serving_tutorial.html)

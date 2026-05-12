@@ -13,3 +13,9 @@ class Item(BaseModel):
 
 class ProcessRequest(BaseModel):
     items: List[Item]
+
+
+class ImageRequest(BaseModel):
+    vv: list[list[float]]
+    vh: list[list[float]]
+    job_id: uuid
