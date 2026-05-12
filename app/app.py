@@ -44,4 +44,25 @@ class FloodModel:
 
         predictions = await self.predict(images_array)
 
-        return [{"prediction": pred} for pred in predictions]
+        return [{"FloodMask": pred} for pred in predictions]
+
+
+num_cpus_per_replica=1
+num+gpus_per_replica=1
+FloodModelApp = FloodModel.options(
+    autoscaling_config = {
+        "target_ongoing_requests": 50,
+        "min_replicas": 1,
+        "max_replicas": 10,
+        upscale_delay_s: 5,
+        downscale_delay_s: 30,
+    },
+    max_ongoing_requests = 200,
+    max_queued_request = -1,
+    ray_actor_options={
+        num_cpus=num_cpus_per_replica,
+        num_gpus=num_gpus_per_replica
+    }
+).bind()
+
+handle = serve.run(FloodModelApp, name="FloodModelApp")
