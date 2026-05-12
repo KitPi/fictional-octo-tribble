@@ -10,11 +10,12 @@ import torchvision.transforms as transforms
 from PIL import Image
 from qgis.core import QgsProject, QgsRasterLayer
 from qgis.PyQt.QtGui import *
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QComboBox, QFileDialog, QMessageBox
 from rasterio.transform import from_origin
 
 from sentinel1_extractor import FloodMaskModel
 from TypedQueue import TypedQueue
+from utils import *
 
 
 class FloodMaskPlugin:
@@ -73,12 +74,17 @@ class FloodMaskPlugin:
         if not output_dir:
             return
 
+        model = QComboBox().addItems(["FloodModel"])
+        if not model:
+            return
+
         # Transfer Raster to Backend API
         try:
             with open(input_path, "rb") as f:  # Path To .tif files
-                files = {"file": f}
+                file_content = f.read()
+                item = Item(time=datetime.now(), data=file_content)
                 response = requests.post(
-                    f"{self.backend_api}/process-raster", files=files
+                    f"{self.backend_api}/{model}/process", files=files
                 )
                 if response.status_code != 200:
                     raise Exception(f"API Error: {response.text}")

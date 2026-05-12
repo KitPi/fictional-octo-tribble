@@ -1,14 +1,25 @@
-from collections import deque
+import threading
+
+from utils import *
 
 
 class TypedQueue:
+    def size(self):
+        return len(self.queue)
+
     def __init__(self):
-        self.queue = deque()
+        self.queue = []
+        self.lock = threading.Lock()
 
-    def push(self, item_type, item):
-        self.queue.append((item_type, item))
+    def push(self, items: Item):
+        with self.lock:
+            self.queue.extend(items)
 
-    def pop(self, count: int = 1, item_type=None):
+    def pop(self, count: int = 1) -> List[Item]:
+        with self.lock:
+            if len(self.queue) == 0:
+                return []
+
         popped_items = []
         temp_queue = deque()
         # size = len(self.queue)
