@@ -36,33 +36,35 @@ class FloodModel:
 
         return outputs.cpu().numpy().tolist()
 
-    @app.post("/")
-    async def handle_request(self, request: list[ImageRequest]):
-        images_array = [
-            torch.stack([np.array(req.vv), np.array(req.vh)]) for req in request
-        ]
+    @app.post("/floodmask/process")
+    async def handle_request(self, request: ImageRequest) -> list[np.ndarray]:
+        images_array = [torch.stack([np.array(request.vv), np.array(request.vh)])]
 
         predictions = await self.predict(images_array)
 
-        return [{"FloodMask": pred} for pred in predictions]
+        return predictions
+
+    @app.get("/health")
+    async def health_check(self) -> str:
+        return "OK"
 
 
-num_cpus_per_replica=1
-num+gpus_per_replica=1
+num_cpus_per_replica = 1
+num_gpus_per_replica = 1
 FloodModelApp = FloodModel.options(
-    autoscaling_config = {
+    autoscaling_config={
         "target_ongoing_requests": 50,
         "min_replicas": 1,
         "max_replicas": 10,
-        upscale_delay_s: 5,
-        downscale_delay_s: 30,
+        "upscale_delay_s": 5,
+        "downscale_delay_s": 30,
     },
-    max_ongoing_requests = 200,
-    max_queued_request = -1,
+    max_ongoing_requests=200,
+    max_queued_request=-1,
     ray_actor_options={
-        num_cpus=num_cpus_per_replica,
-        num_gpus=num_gpus_per_replica
-    }
+        "num_cpus": num_cpus_per_replica,
+        "num_gpus": num_gpus_per_replica,
+    },
 ).bind()
 
 handle = serve.run(FloodModelApp, name="FloodModelApp")
