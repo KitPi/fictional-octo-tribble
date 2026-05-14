@@ -18,4 +18,3 @@ class ProcessRequest(BaseModel):
 class ImageRequest(BaseModel):
     vv: list[list[float]]
     vh: list[list[float]]
-    job_id: uuid

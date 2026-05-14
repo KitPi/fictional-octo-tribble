@@ -4,3 +4,4 @@ files/
 qgis-venv/
 __pycache__/
 .pytest_cache/
+app/app-venv/

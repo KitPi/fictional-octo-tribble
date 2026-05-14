@@ -15,8 +15,7 @@ rasterPaths = [
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_242570_S1Hand.tif",
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_290290_S1Hand.tif",
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_233925_S1Hand.tif",
-    "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_103757_S1Hand.tif",
-    "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_129334_S1Hand.tif",
+    "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_103757_S1Hand.tif"
 ]
 
 
