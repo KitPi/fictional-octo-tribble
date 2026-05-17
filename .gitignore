@@ -7,3 +7,5 @@ __pycache__/
 app/app-venv/
 responses/
 app/responses/
+train-venv/
+runs/

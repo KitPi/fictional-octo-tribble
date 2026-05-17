@@ -34,7 +34,7 @@ def convertBNtoGN(module, num_groups=16):
 
 app = FastAPI()
 
-FloodModelPath = "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
+FloodModelPath = "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 
 
 @serve.deployment

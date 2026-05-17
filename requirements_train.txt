@@ -4,6 +4,6 @@ rasterio
 numpy
 tqdm>=4.65.0
 matplotlib
-ipywidgets
-pytest
-PyQt6
+tdqm
+pillow
+tensorboard
