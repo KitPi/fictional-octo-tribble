@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 
 import aiohttp
@@ -15,7 +16,7 @@ rasterPaths = [
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_242570_S1Hand.tif",
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_290290_S1Hand.tif",
     "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_233925_S1Hand.tif",
-    "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_103757_S1Hand.tif"
+    "/home/kit/Documents/QGIS/RemoteSensing/files/S1/Bolivia_103757_S1Hand.tif",
 ]
 
 
@@ -27,14 +28,18 @@ async def send_single_request(session, url, data):
 async def send_concurrent_requests():
     images = []
     for im in rasterPaths:
-        with rasterio.open(im) as src
-            images.append({"vv": src.read(1).tolist(), "vh": src.read(2).tolist()})
+        with rasterio.open(im) as src:
+            vv = np.nan_to_num(src.read(1), nan=0.0)
+            vh = np.nan_to_num(src.read(2), nan=0.0)
+            images.append({"vv": vv.tolist(), "vh": vh.tolist()})
 
     print(f"Sending {len(rasterPaths)} concurrent requests...")
     async with aiohttp.ClientSession() as session:
         tasks = [
             send_single_request(
-                session, url="http://localhost:8000/", data={"vv": image["vv"], "vh": image["vh"]}
+                session,
+                url="http://localhost:8000/",
+                data={"vv": image["vv"], "vh": image["vh"]},
             )
             for image in images
         ]
@@ -50,3 +55,16 @@ elapsed = time.time() - start_time
 
 print(f"Processed {len(responses)} requests in {elapsed:.2f} seconds")
 print(f"Throughput: {len(responses) / elapsed:.2f} requests/second")
+
+
+# from rasterio.transform import from_origin
+
+os.makedirs("responses", exist_ok=True)
+
+for count, (path, response) in enumerate(zip(rasterPaths, responses)):
+    with rasterio.open(path) as src:
+        meta = src.profile
+        meta.update(count=1, dtype="float32")
+
+    with rasterio.open(f"responses/response_{count}_new.tif", "w", **meta) as dst:
+        dst.write(np.array(response, dtype=np.float32), 1)

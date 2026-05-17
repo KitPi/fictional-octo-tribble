@@ -34,13 +34,7 @@ def convertBNtoGN(module, num_groups=16):
 
 app = FastAPI()
 
-net = models.segmentation.fcn_resnet50(
-    weights=None, num_classes=2, weights_backbone=None
-)
-net.backbone.conv1 = nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3, bias=False)
-net = convertBNtoGN(net)
-
-FloodModelPath = "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
+FloodModelPath = "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 
 
 @serve.deployment
@@ -48,31 +42,43 @@ FloodModelPath = "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 class FloodModel:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = net
-        self.model.load_state_dict(torch.load(FloodModelPath, map_location=self.device))
+
+        net = models.segmentation.fcn_resnet50(
+            weights=None, num_classes=2, weights_backbone=None
+        )
+        net.backbone.conv1 = nn.Conv2d(
+            2, 64, kernel_size=7, stride=2, padding=3, bias=False
+        )
+        net = convertBNtoGN(net)
+
+        self.model = net.to(self.device)
+        self.model.load_state_dict(torch.load(FloodModelPath, map_location="cpu"))
         self.model.eval()
         self.norm = transforms.Normalize([0.6851, 0.5235], [0.0820, 0.1102])
 
-    @serve.batch(max_batch_size=32, batch_wait_timeout_s=0.5)
-    async def predict(self, images: list[np.ndarray]) -> list[np.ndarray]:
-        batch_tensor = (
-            torch.stack([torch.from_numpy(img) for img in images])
-            .to(self.device)
-            .float()
-        )
-
-        batch_tensor = self.norm(batch_tensor)
+    async def predict(self, image: np.ndarray) -> list[list[float]]:
+        tensor = torch.from_numpy(image).to(self.device).float().unsqueeze(0)
+        tensor = self.norm(tensor)
 
         with torch.no_grad():
-            outputs = self.model(batch_tensor)
+            outputs = self.model(tensor)["out"]  # [1, 2, H, W]
 
-        return outputs.cpu().numpy().tolist()
+        # predicted = outputs.argmax(dim=1).squeeze(
+        # 0
+        # )  # outputs.argmax(dim=1).squeeze(0)  # [H, W]
+        # return predicted.cpu().numpy().astype(float).tolist()
+
+        probs = outputs.softmax(dim=1)  # [1, 2, H, W]
+        flood_prob = probs[0, 1]  # [H, W] — probability of flood class
+        return flood_prob.cpu().numpy().astype(float).tolist()
 
     @app.post("/")  # /floodmask/process
     async def handle_request(self, request: ImageRequest) -> list[list[float]]:
-        images_array = [torch.stack([np.array(request.vv), np.array(request.vh)])]
-
-        predictions = await self.predict(images_array)
+        vv, vh = np.array(request.vv), np.array(request.vh)
+        vv = np.nan_to_num(vv, nan=0.0)
+        vh = np.nan_to_num(vh, nan=0.0)
+        img_array = np.stack([vv, vh])
+        predictions = await self.predict(img_array)
 
         return predictions
 
