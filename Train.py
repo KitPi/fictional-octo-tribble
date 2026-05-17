@@ -298,6 +298,7 @@ def main(args):
         start_epoch = ckpt["epoch"] + 1
         max_valid_iou = ckpt.get("max_valid_iou", 0.0)
         print(f"Resumed at epoch {start_epoch}, best val IoU: {max_valid_iou:.4f}")
+        net = net.to("cuda")
 
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     os.makedirs(args.log_dir, exist_ok=True)

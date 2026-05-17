@@ -26,3 +26,7 @@ python -m pytest
 
 ## Ray Tutorial
  [Ray tutorial](https://docs.pytorch.org/tutorials/beginner/serving_tutorial.html)
+
+
+## Serve
+ `serve run app.app:FloodModelApp`
