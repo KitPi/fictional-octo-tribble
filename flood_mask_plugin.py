@@ -1,21 +1,32 @@
 # flood_mask_plugin.py
+import asyncio
 import os
 import tempfile
 
+import aiohttp
 import numpy as np
 import rasterio
 import requests
-import torch
-import torchvision.transforms as transforms
 from PIL import Image
 from qgis.core import QgsProject, QgsRasterLayer
 from qgis.PyQt.QtGui import *
-from qgis.PyQt.QtWidgets import QAction, QComboBox, QFileDialog, QMessageBox
+from qgis.PyQt.QtWidgets import (
+    QAction,
+    QComboBox,
+    QFileDialog,
+    QInputEvent,
+    QMessageBox,
+)
 from rasterio.transform import from_origin
-
 from sentinel1_extractor import FloodMaskModel
 from TypedQueue import TypedQueue
+
 from utils import *
+
+
+async def send_single_request(session, url, data):
+    async with session.post(url, json=data) as response:
+        return await response.json()
 
 
 class FloodMaskPlugin:
@@ -48,7 +59,7 @@ class FloodMaskPlugin:
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginToMenu("&Flood Analysis", self.action)
 
-    def run(self):
+    async def run(self):
         # Connect to the Backend API
         api_addr = QInputEvent.getText(
             None, "Backend API", "Enter Backend API Address:port"
@@ -78,21 +89,36 @@ class FloodMaskPlugin:
         if not model:
             return
 
-        # Transfer Raster to Backend API
         try:
-            with open(input_path, "rb") as f:  # Path To .tif files
-                file_content = f.read()
-                item = Item(time=datetime.now(), data=file_content)
-                response = requests.post(
-                    f"{self.backend_api}/{model}/process", files=files
-                )
-                if response.status_code != 200:
-                    raise Exception(f"API Error: {response.text}")
-                output_data = response.content
-                job_ids.append(response.json().get("job_id", "unknown"))
+            with rasterio.open(input_path) as img:
+                vv = np.nan_to_num(img.read(1), nan=0.0)
+                vh = np.nan_to_num(img.read(2), nan=0.0)
+                with aiohttp.ClientSession() as session:
+                    await send_single_request(
+                        session,
+                        url=f"{self.backend_api}/{model}",
+                        data={"vv": vv.tolist(), "vh": vh.tolist()},
+                    )
+
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
             return
+
+        # Transfer Raster to Backend API
+        # try:
+        #    with open(input_path, "rb") as f:  # Path To .tif files
+        #        file_content = f.read()
+        #        item = Item(time=datetime.now(), data=file_content)
+        #        async with requests.post(
+        #            f"{self.backend_api}/{model}/process", files=files
+        #        ) as response
+        #            if response.status_code != 200:
+        #                raise Exception(f"API Error: {response.text}")
+        #            output_data = response.content
+        #            job_ids.append(response.json().get("job_id", "unknown"))
+        # except Exception as e:
+        #    QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
+        #    return
 
     def save_raster(self, data, output_path, transform, crs):
         # Create a temporary file to store the output
