@@ -9,3 +9,7 @@ responses/
 app/responses/
 train-venv/
 runs/
+training/checkpoints/
+training/files/
+training/test_images/
+training/train-venv/
