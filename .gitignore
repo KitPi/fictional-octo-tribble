@@ -13,3 +13,4 @@ training/checkpoints/
 training/files/
 training/test_images/
 training/train-venv/
+qgis_plugin.zip

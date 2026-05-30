@@ -4,8 +4,8 @@
 # Default venv-path: ./qgis-venv
 
 VENV_PATH="${1:-./qgis-venv}"
-PYTHON_BIN="${2:-python3.13}"
-PYVER="$($PYTHON_BIN -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')"
+PYTHON_BIN="${2:-python3.14}"
+PYVER="3.14"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   echo "Error: $PYTHON_BIN not found. Install Python 3.13 or pass a different interpreter as second arg." >&2

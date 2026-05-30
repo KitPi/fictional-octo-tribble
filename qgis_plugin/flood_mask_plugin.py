@@ -5,10 +5,11 @@ import tempfile
 
 import aiohttp
 import numpy as np
-import rasterio
+
+# import rasterio
 import requests
 from PIL import Image
-from qgis.core import QgsProject, QgsRasterLayer
+from qgis.core import QgsProject, QgsRasterBlock, QgsRasterBlockType, QgsRasterLayer
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import (
     QAction,
@@ -17,10 +18,10 @@ from qgis.PyQt.QtWidgets import (
     QInputEvent,
     QMessageBox,
 )
-from rasterio.transform import from_origin
-from sentinel1_extractor import FloodMaskModel
-from TypedQueue import TypedQueue
 
+# from rasterio.transform import from_origin
+# from sentinel1_extractor import FloodMaskModel
+# from TypedQueue import TypedQueue
 from utils import *
 
 
@@ -34,7 +35,7 @@ class FloodMaskPlugin:
         self.iface = iface
         self.plugin_dir = os.path.dirname(__file__)
         self.backend_api = None
-        self.FloodModel = FloodMaskModel
+        # self.FloodModel = FloodMaskModel
 
     def initBackendAPI(self, api_addr):
         try:
@@ -61,24 +62,24 @@ class FloodMaskPlugin:
 
     def save_raster(self, data, output_path, transform=None, crs=None):
         # Create a temporary file to store the output
-        with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
-            # Save the data as a GeoTIFF
-            with rasterio.open(
-                tmp.name,
-                "w",
-                driver="GTiff",
-                height=data.shape[0],
-                width=data.shape[1],
-                count=1,
-                dtype=data.dtype,
-                crs=crs,
-                transform=transform,
-            ) as dst:
-                dst.write(np.array(data, dtype=np.float32), 1)
-
-            # Copy the temporary file to the final destination
-            with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
-                dst.write(src.read())
+        #with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
+        #    # Save the data as a GeoTIFF
+        #    with rasterio.open(
+        #        tmp.name,
+        #        "w",
+        #        driver="GTiff",
+        #        height=data.shape[0],
+        #        width=data.shape[1],
+        #        count=1,
+        #        dtype=data.dtype,
+        #        crs=crs,
+        #        transform=transform,
+        #    ) as dst:
+            #        dst.write(np.array(data, dtype=np.float32), 1)
+            #
+            #    # Copy the temporary file to the final destination
+        #    with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
+            #        dst.write(src.read())
 
     async def run(self):
         # Connect to the Backend API
@@ -99,8 +100,6 @@ class FloodMaskPlugin:
         if not input_path:
             return
 
-        job_ids = []
-
         # Get output directory
         output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
         if not output_dir:
@@ -110,17 +109,34 @@ class FloodMaskPlugin:
         if not model:
             return
 
+        rlayer = QgsRasterLayer(input_path, "Sentinel1 Layer")
+        if not rlayer.isValid():
+            QMessageBox.critical(None, "Error", "Invalid raster layer")
+            return
+
+        QgsProject.instance().addMapLayer(rlayer)
+
         try:
-            with rasterio.open(input_path) as img:
-                vv = np.nan_to_num(img.read(1), nan=0.0)
-                vh = np.nan_to_num(img.read(2), nan=0.0)
-                with aiohttp.ClientSession() as session:
-                    raster = await send_single_request(
-                        session,
-                        url=f"{self.backend_api}/{model}",
-                        data={"vv": vv.tolist(), "vh": vh.tolist()},
-                    )
-                    save_raster(raster, output_dir)
+            # with rasterio.open(input_path) as img:
+            #
+            # vv = np.nan_to_num(rlayer.read(1), nan=0.0)
+            vv = rlayer.as_numpy(bands=1)
+            # vh = np.nan_to_num(img.read(2), nan=0.0)
+            vh = rlayer.as_numpy(bands=2)
+            with aiohttp.ClientSession() as session:
+                raster = await send_single_request(
+                    session,
+                    url=f"{self.backend_api}/{model}",
+                    data={"vv": vv.tolist(), "vh": vh.tolist()},
+                )
+
+                rasterBlock = QgsRasterBlock(
+                    QgsRasterBlockType.Float32, rlayer.width(), rlayer.height()
+                )
+                rasterBlock.setData(raster)
+                rlayer.setData(rasterBlock)
+                QgsProject.instance().addMapLayer(rlayer)
+                # save_raster(raster, output_dir)
 
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
