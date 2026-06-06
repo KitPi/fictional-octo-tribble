@@ -9,13 +9,14 @@ import numpy as np
 # import rasterio
 import requests
 from PIL import Image
-from qgis.core import QgsProject, QgsRasterBlock, QgsRasterBlockType, QgsRasterLayer
+from qgis.core import QgsProject, QgsRasterBlock, QgsRasterLayer, Qgis
+
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import (
     QAction,
     QComboBox,
     QFileDialog,
-    QInputEvent,
+    QInputDialog,
     QMessageBox,
 )
 
@@ -60,7 +61,7 @@ class FloodMaskPlugin:
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginToMenu("&Flood Analysis", self.action)
 
-    def save_raster(self, data, output_path, transform=None, crs=None):
+    #def save_raster(self, data, output_path, transform=None, crs=None):
         # Create a temporary file to store the output
         #with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
         #    # Save the data as a GeoTIFF
@@ -83,7 +84,7 @@ class FloodMaskPlugin:
 
     async def run(self):
         # Connect to the Backend API
-        api_addr = QInputEvent.getText(
+        api_addr = QInputDialog.getText(
             None, "Backend API", "Enter Backend API Address:port"
         )
         self.backend_api = self.initBackendAPI(api_addr)
@@ -131,7 +132,7 @@ class FloodMaskPlugin:
                 )
 
                 rasterBlock = QgsRasterBlock(
-                    QgsRasterBlockType.Float32, rlayer.width(), rlayer.height()
+                    Qgis.DataType.Float32, rlayer.width(), rlayer.height()
                 )
                 rasterBlock.setData(raster)
                 rlayer.setData(rasterBlock)
