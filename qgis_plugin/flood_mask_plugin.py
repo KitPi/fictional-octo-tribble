@@ -9,11 +9,11 @@ import numpy as np
 # import rasterio
 import requests
 from PIL import Image
-from qgis.core import QgsProject, QgsRasterBlock, QgsRasterLayer, Qgis
-
+from qgis.core import Qgis, QgsProject, QgsRasterBlock, QgsRasterLayer
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import (
     QAction,
+    QApplication,
     QComboBox,
     QFileDialog,
     QInputDialog,
@@ -26,9 +26,9 @@ from qgis.PyQt.QtWidgets import (
 from utils import *
 
 
-async def send_single_request(session, url, data):
-    async with session.post(url, json=data) as response:
-        return await response.json()
+def send_single_request(session, url, data):
+    with session.post(url, json=data) as response:
+        return response.json()
 
 
 class FloodMaskPlugin:
@@ -53,40 +53,46 @@ class FloodMaskPlugin:
 
     def initGui(self):
         self.action = QAction("Generate Flood Mask", self.iface.mainWindow())
-        self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
         self.iface.addPluginToMenu("&Flood Analysis", self.action)
+        self.action.triggered.connect(self.run)
 
     def unload(self):
-        self.iface.removeToolBarIcon(self.action)
-        self.iface.removePluginToMenu("&Flood Analysis", self.action)
+        # self.iface.removeToolBarIcon(self.action)
+        # self.iface.removePluginFromMenu("&Flood Analysis", self.action)
+        del self.action
 
-    #def save_raster(self, data, output_path, transform=None, crs=None):
-        # Create a temporary file to store the output
-        #with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
-        #    # Save the data as a GeoTIFF
-        #    with rasterio.open(
-        #        tmp.name,
-        #        "w",
-        #        driver="GTiff",
-        #        height=data.shape[0],
-        #        width=data.shape[1],
-        #        count=1,
-        #        dtype=data.dtype,
-        #        crs=crs,
-        #        transform=transform,
-        #    ) as dst:
-            #        dst.write(np.array(data, dtype=np.float32), 1)
-            #
-            #    # Copy the temporary file to the final destination
-        #    with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
-            #        dst.write(src.read())
+    # def save_raster(self, data, output_path, transform=None, crs=None):
+    # Create a temporary file to store the output
+    # with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
+    #    # Save the data as a GeoTIFF
+    #    with rasterio.open(
+    #        tmp.name,
+    #        "w",
+    #        driver="GTiff",
+    #        height=data.shape[0],
+    #        width=data.shape[1],
+    #        count=1,
+    #        dtype=data.dtype,
+    #        crs=crs,
+    #        transform=transform,
+    #    ) as dst:
+    #        dst.write(np.array(data, dtype=np.float32), 1)
+    #
+    #    # Copy the temporary file to the final destination
+    #    with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
+    #        dst.write(src.read())
 
-    async def run(self):
+    def run(self):
+        self.iface.messageBar().pushMessage("Hello from Plugin")
+
+        # app = QApplication.instance()
+        # app.setStyleSheet(".QWidget {color: blue; background-color: yellow;}")
         # Connect to the Backend API
         api_addr = QInputDialog.getText(
             None, "Backend API", "Enter Backend API Address:port"
         )
+
         self.backend_api = self.initBackendAPI(api_addr)
         if not self.backend_api:
             QMessageBox.critical(
@@ -125,7 +131,7 @@ class FloodMaskPlugin:
             # vh = np.nan_to_num(img.read(2), nan=0.0)
             vh = rlayer.as_numpy(bands=2)
             with aiohttp.ClientSession() as session:
-                raster = await send_single_request(
+                raster = send_single_request(
                     session,
                     url=f"{self.backend_api}/{model}",
                     data={"vv": vv.tolist(), "vh": vh.tolist()},

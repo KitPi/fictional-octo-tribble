@@ -1,4 +1,6 @@
 # __init__.py
+from .flood_mask_plugin import FloodMaskPlugin
+
+
 def classFactory(iface):
-    from .flood_mask_plugin import FloodMaskPlugin
     return FloodMaskPlugin(iface)
