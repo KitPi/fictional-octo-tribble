@@ -40,15 +40,17 @@ class FloodMaskPlugin:
 
     def initBackendAPI(self, api_addr):
         try:
-            response = requests.get(f"{api_addr}/status")
+            response = requests.get(f"http://{api_addr}/health")
             # Returns a URL with the processing ID if the API is available, otherwise returns None
             if response.status_code == 200:
-                proc_id = response.json().get("processing_id", [])
-                if proc_id:
-                    return f"{api_addr}/{proc_id[0]}"
+                return api_addr
+                # proc_id = response.json().get("processing_id", [])
+                # if proc_id:
+                #    return f"{api_addr}/{proc_id[0]}"
             return None
 
         except Exception as e:
+            # self.iface.messageBar().pushMessage(e)
             return None
 
     def initGui(self):
@@ -89,11 +91,20 @@ class FloodMaskPlugin:
         # app = QApplication.instance()
         # app.setStyleSheet(".QWidget {color: blue; background-color: yellow;}")
         # Connect to the Backend API
-        api_addr = QInputDialog.getText(
+        api_addr, ok = QInputDialog.getText(
             None, "Backend API", "Enter Backend API Address:port"
         )
 
-        self.backend_api = self.initBackendAPI(api_addr)
+        self.iface.messageBar().pushMessage(f"ip-address: {api_addr}")
+
+        if ok:
+            self.backend_api = self.initBackendAPI(api_addr)
+        else:
+            QMessageBox.critical(
+                None, "Error", "Failed to connect obtain Backend IP Address"
+            )
+            return
+
         if not self.backend_api:
             QMessageBox.critical(
                 None, "Error", f"Failed to connect to Backend API at {api_addr}"
@@ -108,11 +119,13 @@ class FloodMaskPlugin:
             return
 
         # Get output directory
-        output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
-        if not output_dir:
+        output_dir, ok = QFileDialog.getExistingDirectory(
+            None, "Select Output Directory"
+        )
+        if not ok:
             return
 
-        model = QComboBox().addItems(["FloodModel"])
+        model, _ = QComboBox().addItems(["FloodModel"])
         if not model:
             return
 
@@ -133,7 +146,7 @@ class FloodMaskPlugin:
             with aiohttp.ClientSession() as session:
                 raster = send_single_request(
                     session,
-                    url=f"{self.backend_api}/{model}",
+                    url=f"http://{self.backend_api}/{model}",
                     data={"vv": vv.tolist(), "vh": vh.tolist()},
                 )
 

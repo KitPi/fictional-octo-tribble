@@ -5,12 +5,15 @@ qgis-venv/
 __pycache__/
 .pytest_cache/
 app/app-venv/
+app/checkpoints/
 responses/
 app/responses/
 train-venv/
 runs/
+checkpoints/
 training/checkpoints/
 training/files/
 training/test_images/
 training/train-venv/
-qgis_plugin.zip
+*.zip
+qgis_plugin/flood_mask_plugin.ui

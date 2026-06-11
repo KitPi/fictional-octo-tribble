@@ -84,7 +84,7 @@ class FloodModel:
 
     @app.get("/health")
     async def health_check(self) -> str:
-        return "OK"
+        return HTML(200)
 
     @app.get("/status", response_class=HTMLResponse)
     async def index(self) -> str:
