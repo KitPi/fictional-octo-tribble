@@ -9,7 +9,13 @@ import numpy as np
 # import rasterio
 import requests
 from PIL import Image
-from qgis.core import Qgis, QgsProject, QgsRasterBlock, QgsRasterLayer
+from qgis.core import (
+    Qgis,
+    QgsProject,
+    QgsRasterBlock,
+    QgsRasterDataProvider,
+    QgsRasterLayer,
+)
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import (
     QAction,
@@ -23,7 +29,7 @@ from qgis.PyQt.QtWidgets import (
 # from rasterio.transform import from_origin
 # from sentinel1_extractor import FloodMaskModel
 # from TypedQueue import TypedQueue
-from utils import *
+# from ..utils import ImageRequest
 
 
 def send_single_request(session, url, data):
@@ -61,7 +67,7 @@ class FloodMaskPlugin:
 
     def unload(self):
         # self.iface.removeToolBarIcon(self.action)
-        # self.iface.removePluginFromMenu("&Flood Analysis", self.action)
+        self.iface.removePluginMenu("&Flood Analysis", self.action)
         del self.action
 
     # def save_raster(self, data, output_path, transform=None, crs=None):
@@ -91,9 +97,13 @@ class FloodMaskPlugin:
         # app = QApplication.instance()
         # app.setStyleSheet(".QWidget {color: blue; background-color: yellow;}")
         # Connect to the Backend API
-        api_addr, ok = QInputDialog.getText(
-            None, "Backend API", "Enter Backend API Address:port"
-        )
+
+        ##  api_addr, ok = QInputDialog.getText(
+        ##      None, "Backend API", "Enter Backend API Address:port"
+        ##  )
+
+        api_addr = "127.0.0.1:8000"
+        ok = True
 
         self.iface.messageBar().pushMessage(f"ip-address: {api_addr}")
 
@@ -111,6 +121,8 @@ class FloodMaskPlugin:
             )
             return
 
+        self.iface.messageBar().pushMessage("Selecting Images ...")
+
         # Get input Sentinel-1 Raster
         input_path, _ = QFileDialog.getOpenFileName(
             None, "Select Sentinel-1 Image", "", "GeoTIFF Files (*.tif)"
@@ -118,49 +130,77 @@ class FloodMaskPlugin:
         if not input_path:
             return
 
+        self.iface.messageBar().pushMessage("Selecting Output Directory ...")
+
         # Get output directory
-        output_dir, ok = QFileDialog.getExistingDirectory(
-            None, "Select Output Directory"
+        output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
+
+        if not output_dir:
+            QMessageBox.critical(None, "Error", "Output Directory not loaded ...")
+            return
+
+        # self.iface.messageBar().pushMessage("Selecting Model ...")
+        # model, _ = QComboBox().addItems(["FloodModel"])
+        # if not model:
+        #    QMessageBox.critical(None, "Error", "Model not selected.")
+        #    return
+
+        models = ["FloodMask", "Mining", "Option 3"]
+        model, ok = QInputDialog.getItem(
+            None, "Title", "Select an option:", models, editable=False
         )
-        if not ok:
+        if ok:
+            self.iface.messageBar().pushMessage(f"Model Selected: {model}")
+
+        self.iface.messageBar().pushMessage("Loading Raster")
+
+        # rlayer = QgsRasterBlock(input_path, "Sentinel1 Layer")
+        dp = QgsRasterDataProvider.open(input_path)
+        if not dp.isValid():
+            QMessageBox.critical(None, "Error", "Invalid raster layer.")
             return
 
-        model, _ = QComboBox().addItems(["FloodModel"])
-        if not model:
-            return
+        w, h, xt = dp.xSize(), dp.ySize(), dp.extent()
 
-        rlayer = QgsRasterLayer(input_path, "Sentinel1 Layer")
-        if not rlayer.isValid():
-            QMessageBox.critical(None, "Error", "Invalid raster layer")
-            return
+        block1 = dp.block(1, xt, w, h)
+        block2 = dp.block(2, xt, w, h)
 
-        QgsProject.instance().addMapLayer(rlayer)
+        # QgsProject.instance().addMapLayer(rlayer)
 
         try:
             # with rasterio.open(input_path) as img:
             #
             # vv = np.nan_to_num(rlayer.read(1), nan=0.0)
-            vv = rlayer.as_numpy(bands=1)
+            vv = block1.as_numpy()
             # vh = np.nan_to_num(img.read(2), nan=0.0)
-            vh = rlayer.as_numpy(bands=2)
+            vh = block2.as_numpy()
+
+            self.iface.messageBar().pushMessage("Sending raster to backend ...")
+
             with aiohttp.ClientSession() as session:
+                # ir = ImageRequest
+                # ir.vv = vv.tolist()
+                # ir.vh = vh.tolist()
+
                 raster = send_single_request(
                     session,
                     url=f"http://{self.backend_api}/{model}",
                     data={"vv": vv.tolist(), "vh": vh.tolist()},
                 )
 
+                self.iface.messageBar().pushMessage("Processed Raster received ...")
+
                 rasterBlock = QgsRasterBlock(
                     Qgis.DataType.Float32, rlayer.width(), rlayer.height()
                 )
                 rasterBlock.setData(raster)
                 rlayer.setData(rasterBlock)
-                QgsProject.instance().addMapLayer(rlayer)
+                QgsProject.instance().addRasterLayer(rlayer)
                 # save_raster(raster, output_dir)
+            return
 
         except Exception as e:
-            QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
-            return
+            raise e
 
         # Transfer Raster to Backend API
         # try:

@@ -4,11 +4,12 @@ import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
 from fastapi import FastAPI
+from fastapi.openapi.models import Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from ray import serve
 
-# from .utils import *
+# from ..utils import ImageRequest
 
 
 class ImageRequest(BaseModel):
@@ -34,7 +35,7 @@ def convertBNtoGN(module, num_groups=16):
 
 app = FastAPI()
 
-FloodModelPath = "checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
+FloodModelPath = "../checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 
 
 @serve.deployment
@@ -72,9 +73,9 @@ class FloodModel:
         # flood_prob = probs[0, 1]  # [H, W] — probability of flood class
         # return flood_prob.cpu().numpy().astype(float).tolist()
 
-    @app.post("/")  # /floodmask/process
-    async def handle_request(self, request: ImageRequest) -> list[list[float]]:
-        vv, vh = np.array(request.vv), np.array(request.vh)
+    @app.post("/FloodMask")  # /floodmask/process
+    async def handle_request(self, request: dict) -> list[list[float]]:
+        vv, vh = np.array(request["vv"]), np.array(request["vh"])
         vv = np.nan_to_num(vv, nan=0.0)
         vh = np.nan_to_num(vh, nan=0.0)
         img_array = np.stack([vv, vh])
@@ -82,9 +83,9 @@ class FloodModel:
 
         return predictions
 
-    @app.get("/health")
+    @app.get("/health", response_class=HTMLResponse)
     async def health_check(self) -> str:
-        return HTML(200)
+        return ""
 
     @app.get("/status", response_class=HTMLResponse)
     async def index(self) -> str:
