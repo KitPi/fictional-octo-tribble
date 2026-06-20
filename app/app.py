@@ -35,7 +35,7 @@ def convertBNtoGN(module, num_groups=16):
 
 app = FastAPI()
 
-FloodModelPath = "../checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
+FloodModelPath = "checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 
 
 @serve.deployment
@@ -64,10 +64,10 @@ class FloodModel:
         with torch.no_grad():
             outputs = self.model(tensor)["out"]  # [1, 2, H, W]
 
-        predicted = outputs.argmax(dim=1).squeeze(
-            0
-        )  # outputs.argmax(dim=1).squeeze(0)  # [H, W]
-        return predicted.cpu().numpy().astype(float).tolist()
+        probs = outputs.softmax(
+            dim=1
+        )  # outputs.squeeze(0)  # outputs.argmax(dim=1).squeeze(0)  # [H, W]
+        return probs[0, 1].cpu().numpy().astype(float).tolist()
 
         # probs = outputs.softmax(dim=1)  # [1, 2, H, W]
         # flood_prob = probs[0, 1]  # [H, W] — probability of flood class

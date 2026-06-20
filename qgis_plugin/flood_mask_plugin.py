@@ -1,9 +1,7 @@
 # flood_mask_plugin.py
-import asyncio
 import os
 import tempfile
 
-import aiohttp
 import numpy as np
 
 # import rasterio
@@ -14,6 +12,7 @@ from qgis.core import (
     QgsProject,
     QgsRasterBlock,
     QgsRasterDataProvider,
+    QgsRasterFileWriter,
     QgsRasterLayer,
 )
 from qgis.PyQt.QtGui import *
@@ -32,9 +31,10 @@ from qgis.PyQt.QtWidgets import (
 # from ..utils import ImageRequest
 
 
-def send_single_request(session, url, data):
-    with session.post(url, json=data) as response:
-        return response.json()
+def send_single_request(url, data):
+    response = requests.post(url, json=data, timeout=60)
+    response.raise_for_status()
+    return response.json()
 
 
 class FloodMaskPlugin:
@@ -98,12 +98,12 @@ class FloodMaskPlugin:
         # app.setStyleSheet(".QWidget {color: blue; background-color: yellow;}")
         # Connect to the Backend API
 
-        ##  api_addr, ok = QInputDialog.getText(
-        ##      None, "Backend API", "Enter Backend API Address:port"
-        ##  )
+        api_addr, ok = QInputDialog.getText(
+            None, "Backend API", "Enter Backend API Address:port"
+        )
 
-        api_addr = "127.0.0.1:8000"
-        ok = True
+        # api_addr = "127.0.0.1:8000"
+        # ok = True
 
         self.iface.messageBar().pushMessage(f"ip-address: {api_addr}")
 
@@ -130,14 +130,14 @@ class FloodMaskPlugin:
         if not input_path:
             return
 
-        self.iface.messageBar().pushMessage("Selecting Output Directory ...")
+        # self.iface.messageBar().pushMessage("Selecting Output Directory ...")
 
         # Get output directory
-        output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
+        # output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
 
-        if not output_dir:
-            QMessageBox.critical(None, "Error", "Output Directory not loaded ...")
-            return
+        # if not output_dir:
+        #     QMessageBox.critical(None, "Error", "Output Directory not loaded ...")
+        #     return
 
         # self.iface.messageBar().pushMessage("Selecting Model ...")
         # model, _ = QComboBox().addItems(["FloodModel"])
@@ -154,11 +154,12 @@ class FloodMaskPlugin:
 
         self.iface.messageBar().pushMessage("Loading Raster")
 
-        # rlayer = QgsRasterBlock(input_path, "Sentinel1 Layer")
-        dp = QgsRasterDataProvider.open(input_path)
-        if not dp.isValid():
+        rlayer = QgsRasterLayer(input_path, "Sentinel1 Layer")
+        if not rlayer.isValid():
             QMessageBox.critical(None, "Error", "Invalid raster layer.")
             return
+
+        dp = rlayer.dataProvider()
 
         w, h, xt = dp.xSize(), dp.ySize(), dp.extent()
 
@@ -170,33 +171,53 @@ class FloodMaskPlugin:
         try:
             # with rasterio.open(input_path) as img:
             #
-            # vv = np.nan_to_num(rlayer.read(1), nan=0.0)
-            vv = block1.as_numpy()
-            # vh = np.nan_to_num(img.read(2), nan=0.0)
-            vh = block2.as_numpy()
+            # vv = np.nan_to_num(rlayer.read(1),  )
+
+            # vv = block1.as_numpy()
+            # dtype = dtype_map.get(gdal_dtype, np.float32)
+            vv = np.nan_to_num(
+                np.frombuffer(bytes(block1.data()), dtype=np.float32).reshape((h, w))
+            )
+
+            # vh = block2.as_numpy()
+            # dtype = dtype_map.get(gdal_dtype, np.float32)
+            vh = np.nan_to_num(
+                np.frombuffer(bytes(block2.data()), dtype=np.float32).reshape((h, w))
+            )
 
             self.iface.messageBar().pushMessage("Sending raster to backend ...")
 
-            with aiohttp.ClientSession() as session:
-                # ir = ImageRequest
-                # ir.vv = vv.tolist()
-                # ir.vh = vh.tolist()
+            response_data = send_single_request(
+                url=f"http://{self.backend_api}/{model}",
+                data={"vv": vv.tolist(), "vh": vh.tolist()},
+            )
 
-                raster = send_single_request(
-                    session,
-                    url=f"http://{self.backend_api}/{model}",
-                    data={"vv": vv.tolist(), "vh": vh.tolist()},
-                )
+            self.iface.messageBar().pushMessage("Processed Raster received ...")
 
-                self.iface.messageBar().pushMessage("Processed Raster received ...")
+            # convert raster from list[[]] to QgsRasterBlock
+            arr = np.nan_to_num(np.array(response_data, dtype=np.float32))
+            rasterBlock = QgsRasterBlock(
+                Qgis.DataType.Float32, rlayer.width(), rlayer.height()
+            )
+            rasterBlock.setData(arr.tobytes())
 
-                rasterBlock = QgsRasterBlock(
-                    Qgis.DataType.Float32, rlayer.width(), rlayer.height()
-                )
-                rasterBlock.setData(raster)
-                rlayer.setData(rasterBlock)
-                QgsProject.instance().addRasterLayer(rlayer)
-                # save_raster(raster, output_dir)
+            # save raster to disk
+            output_path = os.path.join(tempfile.gettempdir(), "flood_mask_output.tif")
+            writer = QgsRasterFileWriter(output_path)
+            provider = writer.createOneBandRaster(
+                Qgis.DataType.Float32,
+                rlayer.width(),
+                rlayer.height(),
+                rlayer.extent(),
+                rlayer.crs(),
+            )
+            provider.writeBlock(rasterBlock, 1)
+            del provider
+
+            # load saved raster into QGIS
+            output_layer = QgsRasterLayer(output_path, "Flood Mask")
+            QgsProject.instance().addMapLayer(output_layer)
+            # save_raster(raster, output_dir)
             return
 
         except Exception as e:
