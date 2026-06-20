@@ -25,11 +25,6 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox,
 )
 
-# from rasterio.transform import from_origin
-# from sentinel1_extractor import FloodMaskModel
-# from TypedQueue import TypedQueue
-# from ..utils import ImageRequest
-
 
 def send_single_request(url, data):
     response = requests.post(url, json=data, timeout=60)
@@ -50,14 +45,10 @@ class FloodMaskPlugin:
             # Returns a URL with the processing ID if the API is available, otherwise returns None
             if response.status_code == 200:
                 return api_addr
-                # proc_id = response.json().get("processing_id", [])
-                # if proc_id:
-                #    return f"{api_addr}/{proc_id[0]}"
             return None
 
         except Exception as e:
-            # self.iface.messageBar().pushMessage(e)
-            return None
+            raise e
 
     def initGui(self):
         self.action = QAction("Generate Flood Mask", self.iface.mainWindow())
@@ -70,40 +61,12 @@ class FloodMaskPlugin:
         self.iface.removePluginMenu("&Flood Analysis", self.action)
         del self.action
 
-    # def save_raster(self, data, output_path, transform=None, crs=None):
-    # Create a temporary file to store the output
-    # with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
-    #    # Save the data as a GeoTIFF
-    #    with rasterio.open(
-    #        tmp.name,
-    #        "w",
-    #        driver="GTiff",
-    #        height=data.shape[0],
-    #        width=data.shape[1],
-    #        count=1,
-    #        dtype=data.dtype,
-    #        crs=crs,
-    #        transform=transform,
-    #    ) as dst:
-    #        dst.write(np.array(data, dtype=np.float32), 1)
-    #
-    #    # Copy the temporary file to the final destination
-    #    with open(tmp.name, "rb") as src, open(output_path, "wb") as dst:
-    #        dst.write(src.read())
-
     def run(self):
         self.iface.messageBar().pushMessage("Hello from Plugin")
-
-        # app = QApplication.instance()
-        # app.setStyleSheet(".QWidget {color: blue; background-color: yellow;}")
-        # Connect to the Backend API
 
         api_addr, ok = QInputDialog.getText(
             None, "Backend API", "Enter Backend API Address:port"
         )
-
-        # api_addr = "127.0.0.1:8000"
-        # ok = True
 
         self.iface.messageBar().pushMessage(f"ip-address: {api_addr}")
 
@@ -123,27 +86,23 @@ class FloodMaskPlugin:
 
         self.iface.messageBar().pushMessage("Selecting Images ...")
 
-        # Get input Sentinel-1 Raster
-        input_path, _ = QFileDialog.getOpenFileName(
-            None, "Select Sentinel-1 Image", "", "GeoTIFF Files (*.tif)"
-        )
-        if not input_path:
+        layers = QgsProject.instance().mapLayers().values()
+        raster_layers = [l for l in layers if isinstance(l, QgsRasterLayer)]
+
+        if not raster_layers:
+            QMessageBox.information(
+                None, "No Rasters", "No raster layers loaded in the project."
+            )
             return
 
-        # self.iface.messageBar().pushMessage("Selecting Output Directory ...")
+        items = [l.name() for l in raster_layers]
+        name, ok = QInputDialog.getItem(
+            None, "Select Raster", "Choose a raster layer:", items, editable=False
+        )
+        if not ok:
+            return
 
-        # Get output directory
-        # output_dir = QFileDialog.getExistingDirectory(None, "Select Output Directory")
-
-        # if not output_dir:
-        #     QMessageBox.critical(None, "Error", "Output Directory not loaded ...")
-        #     return
-
-        # self.iface.messageBar().pushMessage("Selecting Model ...")
-        # model, _ = QComboBox().addItems(["FloodModel"])
-        # if not model:
-        #    QMessageBox.critical(None, "Error", "Model not selected.")
-        #    return
+        rlayer = next(l for l in raster_layers if l.name() == name)
 
         models = ["FloodMask", "Mining", "Option 3"]
         model, ok = QInputDialog.getItem(
@@ -154,7 +113,7 @@ class FloodMaskPlugin:
 
         self.iface.messageBar().pushMessage("Loading Raster")
 
-        rlayer = QgsRasterLayer(input_path, "Sentinel1 Layer")
+        # rlayer = QgsRasterLayer(input_path, "Sentinel1 Layer")
         if not rlayer.isValid():
             QMessageBox.critical(None, "Error", "Invalid raster layer.")
             return
@@ -169,18 +128,10 @@ class FloodMaskPlugin:
         # QgsProject.instance().addMapLayer(rlayer)
 
         try:
-            # with rasterio.open(input_path) as img:
-            #
-            # vv = np.nan_to_num(rlayer.read(1),  )
-
-            # vv = block1.as_numpy()
-            # dtype = dtype_map.get(gdal_dtype, np.float32)
             vv = np.nan_to_num(
                 np.frombuffer(bytes(block1.data()), dtype=np.float32).reshape((h, w))
             )
 
-            # vh = block2.as_numpy()
-            # dtype = dtype_map.get(gdal_dtype, np.float32)
             vh = np.nan_to_num(
                 np.frombuffer(bytes(block2.data()), dtype=np.float32).reshape((h, w))
             )
@@ -222,22 +173,6 @@ class FloodMaskPlugin:
 
         except Exception as e:
             raise e
-
-        # Transfer Raster to Backend API
-        # try:
-        #    with open(input_path, "rb") as f:  # Path To .tif files
-        #        file_content = f.read()
-        #        item = Item(time=datetime.now(), data=file_content)
-        #        async with requests.post(
-        #            f"{self.backend_api}/{model}/process", files=files
-        #        ) as response
-        #            if response.status_code != 200:
-        #                raise Exception(f"API Error: {response.text}")
-        #            output_data = response.content
-        #            job_ids.append(response.json().get("job_id", "unknown"))
-        # except Exception as e:
-        #    QMessageBox.critical(None, "Error", f"Failed to process image: {str(e)}")
-        #    return
 
 
 if __name__ == "__console__":
