@@ -53,4 +53,4 @@ The Training script PyTorch to train models on new and updated datasets. Using t
 11. Run Inferencing to Generate Flood Mask
 
 ## Todo:
- - [ ] Clip input rasters into *512 x 512* chunks to optimize network thoughput. Send whole rasters over the network is not feasible.
+ - [ ] Clip input rasters into *512 x 512* chunks to optimize network thoughput. Sending whole rasters over the network is not feasible.
