@@ -2,6 +2,10 @@
 
 ----
 
+![Screenshot](./Assets/screenshot.png)
+
+----
+
 ## 1. Sentinel 1 Floodwater Detection
 
 This tool uses the Sentinel 1 satellite imagery to detect floodwater. It is based on the work of [Sentinel 1 Floodwater Detection](https://github.com/geosolutions-it/sentinel1-flood-detection).
