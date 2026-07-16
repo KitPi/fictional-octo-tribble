@@ -8,6 +8,7 @@ from fastapi.openapi.models import Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from ray import serve
+import ray
 
 # from ..utils import ImageRequest
 
@@ -35,10 +36,25 @@ def convertBNtoGN(module, num_groups=16):
 
 app = FastAPI()
 
-FloodModelPath = "checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
+FloodModelPath = "../checkpoints/Sen1Floods11_890_0.6175.cp"  # "checkpoints/Sen1Floods11_755_0.5702770352363586.cp"  # "checkpoints/Sen1Floods11_769_0.5825645327568054.cp"  # "checkpoints/Sen1Floods11_663_0.5874795913696289.cp"
 
 
-@serve.deployment
+
+@serve.deployment(
+    autoscaling_config={
+            "target_ongoing_requests": 50,
+            "min_replicas": 1,
+            "max_replicas": 10,
+            "upscale_delay_s": 5,
+            "downscale_delay_s": 30,
+            "max_ongoing_requests": 200,  # Moved here
+            "max_queued_requests": -1,     # Moved here
+        },
+        ray_actor_options={
+            "num_cpus": 1,
+            "num_gpus": 1,
+        },
+)
 @serve.ingress(app)
 class FloodModel:
     def __init__(self):
@@ -109,19 +125,7 @@ class FloodModel:
 </body>
 </html>"""
 
-
-FloodModelApp = FloodModel.options(
-    autoscaling_config={
-        "target_ongoing_requests": 50,
-        "min_replicas": 1,
-        "max_replicas": 10,
-        "upscale_delay_s": 5,
-        "downscale_delay_s": 30,
-    },
-    max_ongoing_requests=200,
-    max_queued_requests=-1,
-    ray_actor_options={
-        "num_cpus": 1,
-        "num_gpus": 1,
-    },
-).bind()
+if __name__ == "__main__":
+    serve.start(http_options={"host": "0.0.0.0", "port": 8000})
+    FloodModelApp = FloodModel.bind()
+    serve.run(FloodModelApp)

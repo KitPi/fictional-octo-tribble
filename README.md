@@ -39,8 +39,8 @@ The Training script PyTorch to train models on new and updated datasets. Using t
 1. Navigate to app directory `cd app`
 2. Create a venv `python -m venv .app`
 3. Activate venv `source .app/bin/activate`
-4. Navigate to source directory `cd ..`
-5. Serve the backend `serve run app.app:FloodModelApp`
+4. Start ray `ray start --head`
+5. Serve the backend `python app.py`
 
 ### Inferencing from the frontend
 6. Open QGIS 

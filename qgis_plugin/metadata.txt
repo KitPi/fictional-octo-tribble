@@ -3,5 +3,6 @@ name=Sentinel1 Floodmask Generator
 description=Generates a mask describing floodwater extent using Sentinel1 imagery
 version=1.0
 qgisMinimumVersion=3.16
+qgisMaximumVersion=4.99
 author=Christopher Peer
 email=cmpeer@proton.me
